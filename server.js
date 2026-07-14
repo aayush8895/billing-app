@@ -295,6 +295,14 @@ async function handleApi(req, res, url) {
     try { return sendJSON(res, 200, { models: await listModels(apiKey) }); }
     catch (e) { return sendJSON(res, 502, { error: e.message }); }
   }
+  if (p === '/api/ai-config' && method === 'POST') {
+    const { apiKey } = await readBody(req);
+    if (typeof apiKey !== 'string' || !apiKey.trim()) return sendJSON(res, 400, { error: 'apiKey is required' });
+    const c = readJSON(CONFIG_FILE, {});
+    c.geminiApiKey = apiKey.trim();
+    writeJSON(CONFIG_FILE, c);
+    return sendJSON(res, 200, { ok: true });
+  }
   if (p === '/api/extract' && method === 'POST') {
     const { apiKey, model: cfgModel } = getConfig();
     if (!apiKey) return sendJSON(res, 400, { error: 'No API key configured. Add geminiApiKey to config.json (or set GEMINI_API_KEY).' });

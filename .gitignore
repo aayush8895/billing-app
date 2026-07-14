@@ -4,3 +4,4 @@ config.json
 *.zip
 data/bills/*.json
 !data/bills/.gitkeep
+NOTES.md

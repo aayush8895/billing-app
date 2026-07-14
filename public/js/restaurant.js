@@ -307,6 +307,11 @@ const scanInput = $('scanInput');
 if(scanInput){
   scanInput.addEventListener('change', async e=>{
     const file = e.target.files[0]; if(!file) return;
+    const isConfigured = await window.aiIsConfigured();
+    if(!isConfigured){
+      const saved = await window.openAiKeySetup();
+      if(!saved){ scanInput.value = ''; return; }
+    }
     const btn = $('scanBtn');
     const btnHtml = btn.innerHTML;
     btn.disabled = true; btn.classList.add('loading');

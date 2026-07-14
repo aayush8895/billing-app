@@ -142,6 +142,11 @@ var R=(t,cls='')=>'<div class="line '+cls+'"><span></span><span class="r">'+t+'<
   if(scanInput){
     scanInput.addEventListener('change', async e=>{
       var file = e.target.files[0]; if(!file) return;
+      var isConfigured = await window.aiIsConfigured();
+      if(!isConfigured){
+        var saved = await window.openAiKeySetup();
+        if(!saved){ scanInput.value = ''; return; }
+      }
       var btn=$('scanBtn'), btnHtml=btn.innerHTML;
       btn.disabled=true; btn.classList.add('loading'); btn.innerHTML='<span class="spinner"></span>Extracting…';
       aiOverlay(true,'Reading your receipt…','Uploading '+(file.type==='application/pdf'?'PDF':'image'));
