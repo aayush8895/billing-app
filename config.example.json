@@ -1,5 +1,5 @@
 {
   "geminiApiKey": "PASTE_YOUR_GOOGLE_AI_STUDIO_KEY_HERE",
   "model": "gemini-3.5-flash",
-  "telemetryUrl": "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE_OR_LEAVE_BLANK"
+  "telemetryUrl": "https://script.google.com/macros/s/AKfycbynivd4x0LagMQcBUHRAw7EYo7P7o09TSFBOKxNPb-69XwAsl187jL3Lo3ig3SbD2yXJw/exec"
 }
