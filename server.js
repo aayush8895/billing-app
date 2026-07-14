@@ -421,13 +421,17 @@ async function handleApi(req, res, url) {
     }
   }
   if (p === '/api/pdf' && method === 'POST') {
-    const { html, css, w, h, name } = await readBody(req);
+    const { html, css, w, h, name, id, type, total, data } = await readBody(req);
     if (!html) return sendJSON(res, 400, { error: 'no receipt html provided' });
     const wMm = Math.max(20, Math.round(Number(w) || 0));
     const hMm = Math.max(20, Math.round(Number(h) || 0));
     if (!wMm || !hMm) return sendJSON(res, 400, { error: 'invalid page size' });
     try {
       const pdf = await generatePdf({ html, css, wMm, hMm });
+      sendTelemetry('pdf', {
+        id: id || '', type: type || '', name: name || '', total: total || 0, data: data || {},
+        updatedAt: new Date().toISOString(),
+      });
       const safe = String(name || 'bill').replace(/[^\w.\- ]+/g, '').trim() || 'bill';
       return send(res, 200, pdf, {
         'Content-Type': 'application/pdf',

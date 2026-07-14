@@ -124,6 +124,11 @@ var R=(t,cls='')=>'<div class="line '+cls+'"><span></span><span class="r">'+t+'<
   }
   window.saveBill = saveBill;
   window.saveAsCopy = saveAsCopy;
+  // downloadPdf() lives outside this closure, so it can't see currentId/CFG/
+  // collect() directly — expose what it needs to tag the telemetry event.
+  window.getCurrentBillSnapshot = function(){
+    return { id: currentId, type: CFG.type, total: lastTotal, data: collect() };
+  };
 
   // ---- AI scan ----
   function fileToBase64(file){ return new Promise((res,rej)=>{ var r=new FileReader();
@@ -219,9 +224,11 @@ async function downloadPdf(btn){
   var name = (nameEl && nameEl.value.trim()) || 'bill';
   var label = btn && btn.textContent;
   if(btn){ btn.textContent='⏳ PDF…'; btn.disabled=true; }
+  var snap = window.getCurrentBillSnapshot ? window.getCurrentBillSnapshot() : {};
   try{
     var resp = await fetch('/api/pdf',{ method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ html: el.outerHTML, css: css, w: w, h: h, name: name }) });
+      body: JSON.stringify({ html: el.outerHTML, css: css, w: w, h: h, name: name,
+        id: snap.id, type: snap.type, total: snap.total, data: snap.data }) });
     if(!resp.ok){ var er=await resp.json().catch(function(){return {};}); throw new Error(er.error||('HTTP '+resp.status)); }
     var blob = await resp.blob();
     var url = URL.createObjectURL(blob);

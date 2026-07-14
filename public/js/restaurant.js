@@ -396,7 +396,8 @@ async function downloadPdf(btn){
   if(btn){ btn.textContent='⏳ PDF…'; btn.disabled=true; }
   try{
     var resp = await fetch('/api/pdf',{ method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ html: el.outerHTML, css: css, w: w, h: h, name: name }) });
+      body: JSON.stringify({ html: el.outerHTML, css: css, w: w, h: h, name: name,
+        id: currentId, type: 'restaurant', total: lastTotal, data: collect() }) });
     if(!resp.ok){ var er=await resp.json().catch(function(){return {};}); throw new Error(er.error||('HTTP '+resp.status)); }
     var blob = await resp.blob();
     var url = URL.createObjectURL(blob);
