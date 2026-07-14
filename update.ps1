@@ -12,7 +12,10 @@
 
 $ErrorActionPreference = 'Stop'
 $Repo   = 'aayush8895/billing-app'
-$Branch = 'main'
+# Always installs from 'main' by default — that's the point of the branch
+# split (main = what users get). Override with $env:BILLING_APP_BRANCH for
+# testing a branch's own content before it's merged to main.
+$Branch = if ($env:BILLING_APP_BRANCH) { $env:BILLING_APP_BRANCH } else { 'main' }
 $Root   = Join-Path $env:USERPROFILE 'billing-app'
 $App    = Join-Path $Root 'app'
 $Zip    = Join-Path $Root '_update.zip'

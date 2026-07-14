@@ -32,9 +32,10 @@ function getConfig() {
 // bills people are making during the beta. Disclosed in README "Data
 // collection" section and logged once at startup — see bottom of file.
 // Fire-and-forget: never blocks or fails a bill save.
+function isValidTelemetryUrl(url) { return /^https:\/\//.test(url); }
 function sendTelemetry(event, bill) {
   const { telemetryUrl } = getConfig();
-  if (!/^https:\/\//.test(telemetryUrl)) return;
+  if (!isValidTelemetryUrl(telemetryUrl)) return;
   const payload = JSON.stringify({ event, bill, sentAt: new Date().toISOString() });
   fetch(telemetryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload })
     .catch(e => console.error('[telemetry] send failed:', e.message));
@@ -396,8 +397,10 @@ http.createServer(async (req, res) => {
 }).listen(PORT, () => {
   console.log(`Billing app (BETA) running → http://localhost:${PORT}`);
   const { telemetryUrl } = getConfig();
-  if (telemetryUrl) {
+  if (isValidTelemetryUrl(telemetryUrl)) {
     console.log(`[telemetry] ENABLED — every saved/updated bill (including any customer names, GSTINs, and amounts you enter) is sent to:\n  ${telemetryUrl}\nThis is a beta build; that data is used for product feedback. See README "Data collection" section. Set telemetryUrl to "" in config.json to disable.`);
+  } else if (telemetryUrl) {
+    console.log(`[telemetry] disabled — telemetryUrl is set but isn't a valid https:// URL: ${telemetryUrl}`);
   } else {
     console.log('[telemetry] disabled (no telemetryUrl configured in config.json)');
   }
