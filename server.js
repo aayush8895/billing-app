@@ -198,7 +198,11 @@ async function callModel(endpoint, b64, mime, prompt, temperature) {
   };
   const resp = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + resp.status));
+  if (!resp.ok) {
+    const err = new Error((data.error && data.error.message) || ('HTTP ' + resp.status));
+    err.status = resp.status;
+    throw err;
+  }
   const text = (data.candidates && data.candidates[0] && data.candidates[0].content
     && data.candidates[0].content.parts || []).map(p => p.text || '').join('');
   if (!text) throw new Error('empty response from model');
@@ -209,20 +213,109 @@ async function callModel(endpoint, b64, mime, prompt, temperature) {
   return cleaned.startsWith('{') ? cleaned : '{' + text;
 }
 
-async function extractReceipt(apiKey, model, b64, mime, prompt) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+// A model being deprecated/removed or over quota is not worth retrying with
+// different temperatures — that only wastes time before failing the same
+// way three times. Either case means "try a different model instead."
+function isUnavailableModelError(e) {
+  if (e && e.status === 404) return true;
+  return /no longer available|not found|does not exist|is not supported|unknown model|invalid model|only supports/i.test((e && e.message) || '');
+}
+function isQuotaError(e) {
+  if (e && (e.status === 429 || e.status === 503)) return true;
+  return /quota|rate limit|resource_exhausted|overloaded|unavailable/i.test((e && e.message) || '');
+}
+
+// ---------- model discovery/ranking ----------
+// Google doesn't expose per-model server load/capacity, so "use whatever's
+// least loaded" isn't something we can literally query. The practical
+// equivalent: ask the account what models it can actually use right now,
+// rank them by preference, and fall through the ranked list whenever the
+// current pick turns out to be deprecated/removed or quota-exhausted --
+// instead of hardcoding one model name that inevitably goes stale.
+const MODEL_LIST_TTL_MS = 5 * 60 * 1000;
+let modelListCache = { apiKey: null, at: 0, models: null };
+
+// The catalog includes a lot more than general chat/vision models --
+// embeddings, TTS, live-translate, video/image generation, robotics,
+// computer-use agents, deep-research agents, etc. -- some of which still
+// list "generateContent" support yet reject a plain image+text call outright
+// (e.g. "This model only supports Interactions API"). Restrict to Gemini/
+// Gemma text-and-vision-in, text-out models, which is what receipt
+// extraction actually needs.
+function isUsableForExtraction(name) {
+  if (!/^(gemini|gemma)/i.test(name)) return false;
+  if (/embedding|tts|audio|live|video|translate|robotics|computer-use|-image|image-/i.test(name)) return false;
+  return true;
+}
+
+async function getAvailableModels(apiKey) {
+  if (modelListCache.models && modelListCache.apiKey === apiKey && (Date.now() - modelListCache.at) < MODEL_LIST_TTL_MS) {
+    return modelListCache.models;
+  }
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=200`);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + resp.status));
+  const models = (data.models || [])
+    .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+    .map(m => m.name.replace('models/', ''))
+    .filter(isUsableForExtraction);
+  modelListCache = { apiKey, at: Date.now(), models };
+  return models;
+}
+
+// Higher score = tried first. Flash tiers have the most generous free-tier
+// quota and are fast enough for a single-page receipt, so they're preferred
+// over Pro; "-latest" aliases and newer version numbers rank above older
+// ones; experimental/preview builds are deprioritized as less stable. The
+// version number is only read right after "gemini-"/"gemma-" so a trailing
+// date suffix (e.g. "-preview-12-2025") never gets mistaken for a version.
+function rankModel(name) {
+  let score = 0;
+  if (/flash/i.test(name)) score += 100;
+  else if (/pro/i.test(name)) score += 50;
+  if (/latest/i.test(name)) score += 40;
+  const v = name.match(/^(?:gemini|gemma)-(\d+(?:\.\d+)?)/i);
+  if (v) score += parseFloat(v[1]) * 10;
+  if (/exp|preview|thinking/i.test(name)) score -= 20;
+  return score;
+}
+
+function pickCandidates(available, preferred) {
+  const ranked = available.slice().sort((a, b) => rankModel(b) - rankModel(a));
+  const out = [];
+  if (preferred) out.push(preferred);
+  ranked.forEach(m => { if (!out.includes(m)) out.push(m); });
+  return out;
+}
+
+async function extractReceipt(apiKey, preferredModel, fallbackModel, b64, mime, prompt) {
+  let candidates;
+  try {
+    const available = await getAvailableModels(apiKey);
+    candidates = pickCandidates(available, preferredModel);
+    if (!candidates.length && fallbackModel) candidates = [fallbackModel];
+  } catch (e) {
+    console.error('[ai-extract] could not list available models, falling back:', e.message);
+    candidates = [preferredModel || fallbackModel].filter(Boolean);
+  }
+  if (!candidates.length) throw new Error('No usable Gemini model found for this API key.');
+
   const temps = [0.2, 0.5, 0.8];   // retry with escalating randomness to break loops
   let lastErr;
-  for (let i = 0; i < temps.length; i++) {
-    let candidate;
-    try {
-      candidate = await callModel(endpoint, b64, mime, prompt, temps[i]);
-      if (isRunaway(candidate)) throw new Error('model produced a repetition loop');
-      return { fields: extractJson(candidate), raw: candidate };
-    } catch (e) {
-      lastErr = e;
-      console.error(`[ai-extract] attempt ${i + 1}/${temps.length} (temp ${temps[i]}) failed: ${e.message}`);
-      if (candidate) console.error('[ai-extract] raw model output >>>\n' + candidate + '\n<<< end raw');
+  for (const model of candidates) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    for (let i = 0; i < temps.length; i++) {
+      let candidate;
+      try {
+        candidate = await callModel(endpoint, b64, mime, prompt, temps[i]);
+        if (isRunaway(candidate)) throw new Error('model produced a repetition loop');
+        return { fields: extractJson(candidate), raw: candidate, model };
+      } catch (e) {
+        lastErr = e;
+        console.error(`[ai-extract] model=${model} attempt ${i + 1}/${temps.length} (temp ${temps[i]}) failed: ${e.message}`);
+        if (candidate) console.error('[ai-extract] raw model output >>>\n' + candidate + '\n<<< end raw');
+        if (isUnavailableModelError(e) || isQuotaError(e)) break; // try the next model instead of burning retries here
+      }
     }
   }
   throw lastErr;
@@ -314,12 +407,14 @@ async function handleApi(req, res, url) {
     if (!apiKey) return sendJSON(res, 400, { error: 'No API key configured. Add geminiApiKey to config.json (or set GEMINI_API_KEY).' });
     const { imageBase64, mimeType, type, model: reqModel } = await readBody(req);
     if (!imageBase64) return sendJSON(res, 400, { error: 'no image provided' });
-    // Per-request model override (from the UI picker), falling back to config.
-    const model = (typeof reqModel === 'string' && /^[\w.\-]{1,80}$/.test(reqModel)) ? reqModel : cfgModel;
+    // Explicit per-request model pin (from the UI picker), or null to let
+    // extractReceipt auto-discover and rank what's actually available.
+    const pinnedModel = (typeof reqModel === 'string' && /^[\w.\-]{1,80}$/.test(reqModel)) ? reqModel : null;
     const prompt = PROMPTS[type] || PROMPTS.restaurant;
     try {
-      console.error(`[ai-extract] model=${model} type=${type || 'restaurant'}`);
-      const out = await extractReceipt(apiKey, model, imageBase64, mimeType || 'image/jpeg', prompt);
+      console.error(`[ai-extract] pinned=${pinnedModel || '(auto)'} type=${type || 'restaurant'}`);
+      const out = await extractReceipt(apiKey, pinnedModel, cfgModel, imageBase64, mimeType || 'image/jpeg', prompt);
+      console.error(`[ai-extract] succeeded using model=${out.model}`);
       return sendJSON(res, 200, out);
     } catch (e) {
       return sendJSON(res, 502, { error: 'AI extraction failed: ' + e.message });

@@ -328,7 +328,7 @@ if(scanInput){
       mergeFields(data.fields || {});
       render(); markDirty();
       const n = (data.fields && Array.isArray(data.fields.items)) ? data.fields.items.length : 0;
-      setState('✓ Filled from receipt' + (n? ' ('+n+' items)' : '') + ' — review & Save');
+      setState('✓ Filled from receipt' + (n? ' ('+n+' items)' : '') + (data.model? ' via '+data.model : '') + ' — review & Save');
     }catch(err){ setState('⚠ ' + err.message); }
     finally{
       aiOverlay(false);

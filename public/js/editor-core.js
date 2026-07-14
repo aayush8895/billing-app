@@ -160,7 +160,7 @@ var R=(t,cls='')=>'<div class="line '+cls+'"><span></span><span class="r">'+t+'<
         if(!res.ok){ setState('⚠ '+(data.error||'extraction failed')); return; }
         mergeFields(data.fields||{}); render(); markDirty();
         var n=(data.fields && Array.isArray(data.fields.items))?data.fields.items.length:0;
-        setState('✓ Filled from receipt'+(n?' ('+n+' items)':'')+' — review & Save');
+        setState('✓ Filled from receipt'+(n?' ('+n+' items)':'')+(data.model?' via '+data.model:'')+' — review & Save');
       }catch(err){ setState('⚠ '+err.message); }
       finally{ aiOverlay(false); btn.disabled=false; btn.classList.remove('loading'); btn.innerHTML=btnHtml; scanInput.value=''; }
     });
