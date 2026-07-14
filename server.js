@@ -18,10 +18,16 @@ const CONFIG_FILE = path.join(ROOT, 'config.json');
 
 // ---------- storage helpers ----------
 function ensure() { fs.mkdirSync(BILLS, { recursive: true }); }
+// config.example.json ships with this literal placeholder text — a fresh
+// config.json copied from it (by update.ps1/run.sh) still has it until a
+// real key is set, so it must never count as "configured".
+const APIKEY_PLACEHOLDER = 'PASTE_YOUR_GOOGLE_AI_STUDIO_KEY_HERE';
+function isRealApiKey(k) { return !!k && k !== APIKEY_PLACEHOLDER; }
 function getConfig() {
   const c = readJSON(CONFIG_FILE, {});
+  const rawKey = process.env.GEMINI_API_KEY || c.geminiApiKey || '';
   return {
-    apiKey: process.env.GEMINI_API_KEY || c.geminiApiKey || '',
+    apiKey: isRealApiKey(rawKey) ? rawKey : '',
     model: process.env.GEMINI_MODEL || c.model || 'gemini-3.5-flash',
     telemetryUrl: process.env.TELEMETRY_URL || c.telemetryUrl || '',
   };
