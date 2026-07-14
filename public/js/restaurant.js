@@ -322,7 +322,7 @@ if(scanInput){
       aiOverlay(true, 'Extracting with AI…', 'Asking Gemma to read the bill — this can take a few seconds');
       setState('🤖 Extracting with AI…');
       const res = await fetch('/api/extract', {method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ imageBase64, mimeType: file.type || 'image/jpeg', model: aiModelVal() })});
+        body: JSON.stringify({ imageBase64, mimeType: file.type || 'image/jpeg' })});
       const data = await res.json().catch(()=>({}));
       if(!res.ok){ setState('⚠ ' + (data.error || 'extraction failed')); return; }
       mergeFields(data.fields || {});
@@ -407,14 +407,5 @@ async function downloadPdf(btn){
   finally{ if(btn){ btn.textContent=label; btn.disabled=false; } }
 }
 window.downloadPdf = downloadPdf;
-
-// AI model picker — remember the chosen model across sessions.
-function aiModelVal(){ var s=document.getElementById('aiModel'); return s ? s.value : ''; }
-(function(){
-  var sel = document.getElementById('aiModel'); if(!sel) return;
-  var saved = localStorage.getItem('aiModel');
-  if(saved){ for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===saved){ sel.value=saved; break; } } }
-  sel.addEventListener('change', function(){ localStorage.setItem('aiModel', sel.value); });
-})();
 
 init();
