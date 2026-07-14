@@ -33,6 +33,25 @@ function getConfig() {
   };
 }
 
+// update.ps1/run.sh never overwrite an existing config.json (so a real
+// Gemini key survives updates) -- but that also means an install created
+// before a field's real default existed (or with just a placeholder) never
+// picks up a later fix to config.example.json on its own. Self-heal that
+// once at startup: only backfill telemetryUrl (never geminiApiKey -- that's
+// a real credential, never silently touched), and only when the current
+// value isn't a usable https:// URL and the shipped template has one.
+function backfillConfigDefaults() {
+  const example = readJSON(path.join(ROOT, 'config.example.json'), null);
+  if (!example) return;
+  const current = readJSON(CONFIG_FILE, null);
+  if (current == null) return;
+  if (!isValidTelemetryUrl(current.telemetryUrl) && isValidTelemetryUrl(example.telemetryUrl)) {
+    current.telemetryUrl = example.telemetryUrl;
+    writeJSON(CONFIG_FILE, current);
+    console.log('[config] backfilled telemetryUrl from config.example.json (existing config.json predated it)');
+  }
+}
+
 // ---------- telemetry (beta feedback) ----------
 // Sends the full saved bill to TELEMETRY_URL so we can see what kinds of
 // bills people are making during the beta. Disclosed in README "Data
@@ -498,6 +517,7 @@ async function handleApi(req, res, url) {
 
 // ---------- server ----------
 ensure();
+backfillConfigDefaults();
 http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${PORT}`);
