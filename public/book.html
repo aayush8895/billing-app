@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book Receipt — Billing App</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><a href="/index.html" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:8px;"><span class="dot"></span> Billing App</a></div>
+  <div class="who"><a class="btn sm" href="/index.html">← Dashboard</a></div>
+</div>
+
+<div class="wrap">
+  <div class="editor-bar">
+    <input class="name-input" id="billName" placeholder="Bill name (e.g. Crossword — 13 Jun)">
+    <span class="save-state" id="saveState"></span>
+    <input type="file" id="scanInput" accept="image/*,application/pdf" hidden>
+    <select id="aiModel" class="ai-model" title="AI model used for receipt scanning">
+      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+      <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+      <option value="gemma-4-31b-it">Gemma 4 31B</option>
+    </select>
+    <button class="btn" id="scanBtn" onclick="document.getElementById('scanInput').click()">📷 Scan receipt/PDF (AI)</button>
+    <button class="btn primary" id="saveBtn" onclick="saveBill()">💾 Save</button>
+    <button class="btn" id="copyBtn" onclick="saveAsCopy()">⧉ Save as copy</button>
+    <button class="btn" onclick="downloadPdf(this)">⬇ PDF</button>
+  </div>
+
+  <div class="editor">
+    <div class="card form-col">
+      <div class="sec-head">Select Template</div>
+      <div class="templates" id="tpls">
+        <div class="tpl active" data-t="1"><b>Template 1</b><span>Receipt</span></div>
+        <div class="tpl" data-t="2"><b>Template 2</b><span>Simple</span></div>
+      </div>
+
+      <div class="sec-head">Store Details</div>
+      <div class="field"><label>Bookstore Name <span class="req">*</span></label><input id="storeName" placeholder="Store name"></div>
+      <div class="field"><label>Address</label><textarea id="storeAddr"></textarea></div>
+      <div class="row">
+        <div class="field"><label>Tel</label><input id="storeTel"></div>
+        <div class="field"><label>GST No</label><input id="storeGstin"></div>
+      </div>
+
+      <div class="sec-head">Bill Details</div>
+      <div class="row">
+        <div class="field"><label>Bill No</label><input id="invoice"></div>
+        <div class="field"><label>Cashier</label><input id="cashier"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Bill Date</label><input type="date" id="bdate"></div>
+        <div class="field"><label>Bill Time</label><input type="time" id="btime"></div>
+      </div>
+      <div class="field"><label>Customer Name</label><input id="cName" placeholder="(optional)"></div>
+
+      <div class="sec-head">Books</div>
+      <table class="items"><thead><tr><th>Title</th><th class="col-qty">Qty</th><th class="col-rate">Price</th><th class="col-amt">Amount</th><th></th></tr></thead><tbody id="items"></tbody></table>
+      <div class="actions" style="margin-top:14px;"><button class="btn" id="addItem">+ Add Book</button></div>
+
+      <div class="sec-head">Payment &amp; Tax</div>
+      <div class="row3">
+        <div class="field"><label>Paid By</label><select id="paidBy"><option></option><option>CASH</option><option>CARD</option><option>UPI</option></select></div>
+        <div class="field"><label>SGST %</label><input id="sgstRate" type="number" value="0" min="0" step="0.5"></div>
+        <div class="field"><label>CGST %</label><input id="cgstRate" type="number" value="0" min="0" step="0.5"></div>
+      </div>
+      <div class="field"><label><input type="checkbox" id="applyTax" checked> Apply GST</label></div>
+      <div class="field"><label>Footer message</label><input id="footMsg" value="Happy Reading! Visit Again"></div>
+    </div>
+
+    <div class="preview-col">
+      <div class="card" style="position:relative;">
+        <div class="ai-overlay" id="aiOverlay" style="display:none;">
+          <div class="big-spin"></div>
+          <div class="t" id="aiOverlayTitle">Reading your receipt…</div>
+          <div class="s" id="aiOverlaySub">Extracting details with AI</div>
+        </div>
+        <div class="pv-head"><h2>Live Preview</h2><span class="pill">Preview</span></div>
+        <div class="receipt" id="receipt"></div>
+        <div class="foot-note" style="text-align:center;color:var(--muted);font-size:11px;margin-top:12px;">Saved on the server as a file. Edit anytime.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/book.js"></script>
+<script src="/js/editor-core.js"></script>
+</body>
+</html>

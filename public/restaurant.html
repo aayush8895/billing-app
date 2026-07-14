@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restaurant Bill — Billing App</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .editor{display:grid;grid-template-columns:1fr;gap:24px;}
+  @media(min-width:1024px){.editor{grid-template-columns:1fr 1fr;}}
+  .preview-col{position:sticky;top:16px;align-self:start;}
+  table.items{width:100%;border-collapse:collapse;}
+  table.items th{font-size:12px;color:var(--muted);text-align:left;padding:4px 6px;font-weight:600;}
+  table.items td{padding:3px 4px;vertical-align:top;}
+  table.items input{padding:7px 8px;}
+  .col-amt{width:84px;}.col-qty{width:56px;}.col-rate{width:80px;}
+  .del{border:none;background:#fee2e2;color:#b91c1c;border-radius:6px;width:30px;height:34px;cursor:pointer;font-size:16px;line-height:1;}
+  .pv-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .pv-head h2{font-size:15px;margin:0;}
+  .pill{font-size:11px;color:var(--muted);background:#f1f5f9;border-radius:999px;padding:3px 10px;}
+  /* template picker */
+  .templates{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:10px;margin-bottom:6px;}
+  .tpl{border:2px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;background:#fff;transition:.15s;}
+  .tpl:hover{border-color:#5eead4;}
+  .tpl.active{border-color:var(--accent);background:var(--accent-soft);}
+  .tpl b{display:block;font-size:13px;}
+  .tpl span{font-size:10.5px;color:var(--muted);}
+  /* receipt base */
+  .receipt{background:#fff;border:1px dashed #cbd5e1;border-radius:8px;padding:20px 18px;
+           font-family:"Courier New",ui-monospace,monospace;font-size:12.5px;line-height:1.45;color:#111;max-width:360px;margin:0 auto;}
+  .receipt .ctr{text-align:center;}.receipt .b{font-weight:700;}.receipt .big{font-size:15px;}.receipt .big2{font-size:17px;}
+  .receipt .small{font-size:11px;}
+  .receipt hr{border:none;border-top:1.5px solid #111;margin:7px 0;}
+  .receipt hr.dash{border-top:1px dashed #94a3b8;}
+  .receipt hr.dot{border-top:1px dotted #94a3b8;}
+  .receipt hr.thin{border-top:1px solid #cbd5e1;}
+  .receipt .sp{height:8px;}
+  .dash-label{display:flex;align-items:center;gap:6px;color:#475569;margin:6px 0;font-size:11px;}
+  .dash-label::before,.dash-label::after{content:"";flex:1;border-top:1px dashed #94a3b8;}
+  .line{display:flex;justify-content:space-between;gap:8px;}.line .r{white-space:nowrap;}
+  .it{display:grid;grid-template-columns:1fr 30px 58px 60px;gap:2px;}.it .num{text-align:right;}
+  /* template 2 & 3 use a sans-serif look */
+  .receipt.tpl2,.receipt.tpl3{font-family:Inter,system-ui,Arial,sans-serif;font-size:12.5px;}
+  .receipt.tpl2 .it,.receipt.tpl3 .it{grid-template-columns:1fr 50px 40px 60px;}
+  .editor-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .editor-bar .name-input{flex:1;min-width:200px;font-weight:600;}
+  .save-state{font-size:12px;color:var(--muted);}
+  .ai-model{padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;
+    font-size:13px;color:#111;cursor:pointer;height:38px;}
+  /* AI scan loading UX */
+  .spinner{width:14px;height:14px;border:2px solid #ffffff66;border-top-color:#fff;border-radius:50%;
+           display:inline-block;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:4px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #scanBtn.loading{background:var(--accent);color:#fff;border-color:var(--accent);cursor:progress;}
+  .ai-overlay{position:absolute;inset:0;background:rgba(255,255,255,.9);backdrop-filter:blur(2px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    border-radius:12px;z-index:5;text-align:center;padding:24px;}
+  .ai-overlay .big-spin{width:38px;height:38px;border:3px solid #0f766e33;border-top-color:var(--accent);
+    border-radius:50%;animation:spin .7s linear infinite;}
+  .ai-overlay .t{font-weight:700;color:var(--accent);font-size:15px;}
+  .ai-overlay .s{font-size:12px;color:var(--muted);}
+  @media print{
+    .topbar,.editor-bar,.form-col,.pv-head,.foot-note,.actions{display:none!important;}
+    html,body{margin:0!important;padding:0!important;background:#fff!important;}
+    .wrap{margin:0!important;padding:0!important;max-width:none!important;}
+    .editor{display:block!important;}
+    .card,.preview-col{border:none!important;border-radius:0!important;padding:0!important;margin:0!important;
+      box-shadow:none!important;background:none!important;position:static!important;}
+    .receipt{border:none!important;border-radius:0!important;max-width:none!important;width:auto!important;
+      margin:0!important;padding:4mm 4mm!important;}
+  }
+  /* Print page = receipt-width roll with no margins → no browser header/footer, no extra whitespace */
+  @page{ size:100mm auto; margin:0; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><a href="/index.html" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:8px;"><span class="dot"></span> Billing App</a></div>
+  <div class="who"><a class="btn sm" href="/index.html">← Dashboard</a></div>
+</div>
+
+<div class="wrap">
+  <div class="editor-bar">
+    <input class="name-input" id="billName" placeholder="Bill name (e.g. Triveni — 13 Jun)">
+    <span class="save-state" id="saveState"></span>
+    <input type="file" id="scanInput" accept="image/*,application/pdf" hidden>
+    <select id="aiModel" class="ai-model" title="AI model used for receipt scanning">
+      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+      <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+      <option value="gemma-4-31b-it">Gemma 4 31B</option>
+    </select>
+    <button class="btn" id="scanBtn" onclick="document.getElementById('scanInput').click()">📷 Scan receipt/PDF (AI)</button>
+    <button class="btn primary" id="saveBtn" onclick="saveBill()">💾 Save</button>
+    <button class="btn" id="copyBtn" onclick="saveAsCopy()">⧉ Save as copy</button>
+    <button class="btn" onclick="downloadPdf(this)">⬇ PDF</button>
+  </div>
+
+  <div class="editor">
+    <!-- FORM -->
+    <div class="card form-col">
+      <div class="sec-head">Select Template</div>
+      <div class="templates" id="tpls">
+        <div class="tpl" data-t="1"><b>Template 1</b><span>Original receipt</span></div>
+        <div class="tpl" data-t="2"><b>Template 2</b><span>Clean / dashed</span></div>
+        <div class="tpl" data-t="3"><b>Template 3</b><span>Modern</span></div>
+        <div class="tpl active" data-t="4"><b>Template 4</b><span>Thermal / GST</span></div>
+        <div class="tpl" data-t="5"><b>Template 5</b><span>Simple</span></div>
+      </div>
+
+      <div class="sec-head">Restaurant Details</div>
+      <div class="field"><label>Restaurant Name <span class="req">*</span></label><input id="rName" placeholder="Enter restaurant name"></div>
+      <div class="field"><label>Tagline / Sub-name (one per line)</label><textarea id="rTagline"></textarea></div>
+      <div class="field"><label>Address</label><textarea id="rAddr"></textarea></div>
+      <div class="row">
+        <div class="field"><label>Tel</label><input id="rTel"></div>
+        <div class="field"><label>GST No</label><input id="gstNo"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>HSN/SAC</label><input id="hsn"></div>
+        <div class="field"><label>FSSAI</label><input id="fssai"></div>
+      </div>
+
+      <div class="sec-head">Bill Details</div>
+      <div class="row3">
+        <div class="field"><label>Order Type</label><select id="orderType"><option>Dine In</option><option>Takeaway</option><option>Delivery</option></select></div>
+        <div class="field"><label>Table / Token No</label><input id="table"></div>
+        <div class="field"><label>Cashier</label><input id="cashier"></div>
+      </div>
+      <div class="field"><label>Bill No</label><input id="invoice"></div>
+      <div class="row">
+        <div class="field"><label>Bill Date</label><input type="date" id="bdate"></div>
+        <div class="field"><label>Bill Time</label><input type="time" id="btime"></div>
+      </div>
+
+      <div class="sec-head">Customer Details</div>
+      <div class="field"><label>Customer Name</label><input id="cName" placeholder="(optional)"></div>
+
+      <div class="sec-head">Order Details</div>
+      <table class="items"><thead><tr><th>Item</th><th class="col-qty">Qty</th><th class="col-rate">Price</th><th class="col-amt">Amount</th><th></th></tr></thead><tbody id="items"></tbody></table>
+      <div class="actions"><button class="btn" id="addItem">+ Add Item</button></div>
+
+      <div class="sec-head">Payment &amp; Tax</div>
+      <div class="row3">
+        <div class="field"><label>Paid By</label><select id="paidBy"><option></option><option>CASH</option><option>CARD</option><option>UPI</option></select></div>
+        <div class="field"><label>SGST %</label><input id="sgstRate" type="number" value="2.5" min="0" step="0.5"></div>
+        <div class="field"><label>CGST %</label><input id="cgstRate" type="number" value="2.5" min="0" step="0.5"></div>
+      </div>
+      <div class="field"><label><input type="checkbox" id="applyTax" checked> Apply GST</label></div>
+      <div class="field"><label>Footer message</label><input id="footMsg" value="Thanks For Visit!!"></div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="preview-col">
+      <div class="card" style="position:relative;">
+        <div class="ai-overlay" id="aiOverlay" style="display:none;">
+          <div class="big-spin"></div>
+          <div class="t" id="aiOverlayTitle">Reading your receipt…</div>
+          <div class="s" id="aiOverlaySub">Extracting details with AI</div>
+        </div>
+        <div class="pv-head"><h2>Live Preview</h2><span class="pill">Preview</span></div>
+        <div class="receipt" id="receipt"></div>
+        <div class="foot-note" style="text-align:center;color:var(--muted);font-size:11px;margin-top:12px;">Saved on the server as a file. Edit anytime.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/restaurant.js"></script>
+</body>
+</html>

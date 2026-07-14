@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Billing App (Beta)</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="dot"></span> Billing App <span style="font-size:11px;font-weight:700;opacity:.7;border:1px solid currentColor;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle;">BETA</span></div>
+  <div class="who">Local mode</div>
+</div>
+
+<div class="wrap">
+  <div class="dash-head"><h1>Create a bill</h1></div>
+  <div class="types" id="types">
+    <div class="type-card" onclick="location.href='/restaurant.html'">
+      <div class="emoji">🍽️</div>
+      <div class="t">Restaurant Bill</div>
+      <div class="d">Itemised food bill with GST &amp; thermal receipt</div>
+    </div>
+    <div class="type-card" onclick="location.href='/ecommerce.html'">
+      <div class="emoji">📦</div>
+      <div class="t">E-Commerce Bill</div>
+      <div class="d">Tax invoice with seller, bill-to/ship-to &amp; GST</div>
+    </div>
+    <div class="type-card" onclick="location.href='/book.html'">
+      <div class="emoji">📚</div>
+      <div class="t">Book Receipt</div>
+      <div class="d">Bookstore receipt with titles, qty &amp; GST</div>
+    </div>
+  </div>
+
+  <div class="dash-head"><h1>Saved bills</h1>
+    <a class="btn" href="javascript:load()">↻ Refresh</a>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script>
+function money(n){ return '₹ ' + (Math.round((n||0)*100)/100).toFixed(2); }
+function when(iso){ if(!iso) return ''; const d=new Date(iso);
+  return d.toLocaleDateString()+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+
+async function load(){
+  const res = await fetch('/api/bills');
+  const bills = await res.json();
+  const el = document.getElementById('list');
+  if(!bills.length){ el.innerHTML = '<div class="card empty">No saved bills yet. Create one above.</div>'; return; }
+  const TYPES = { restaurant:'🍽️ Restaurant', ecommerce:'📦 E-Commerce', book:'📚 Book' };
+  const pageFor = t => (['restaurant','ecommerce','book'].includes(t) ? t : 'restaurant') + '.html';
+  let h = '<table class="bills"><thead><tr><th>Name</th><th>Type</th><th>Total</th><th>Last edited</th><th></th></tr></thead><tbody>';
+  bills.forEach(b=>{
+    const page = pageFor(b.type);
+    h += '<tr>'+
+      '<td><a href="/'+page+'?id='+b.id+'">'+escapeHtml(b.name)+'</a></td>'+
+      '<td>'+(TYPES[b.type]||b.type)+'</td>'+
+      '<td>'+money(b.total)+'</td>'+
+      '<td>'+when(b.updatedAt)+'</td>'+
+      '<td><div class="acts">'+
+        '<a class="btn sm" href="/'+page+'?id='+b.id+'">Edit</a>'+
+        '<button class="btn sm" onclick="dup(\''+b.id+'\',\''+page+'\')">Duplicate</button>'+
+        '<button class="btn sm danger" onclick="del(\''+b.id+'\',\''+escapeJs(b.name)+'\')">Delete</button>'+
+      '</div></td></tr>';
+  });
+  h += '</tbody></table>';
+  el.innerHTML = h;
+}
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function escapeJs(s){ return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+async function dup(id, page){
+  const res = await fetch('/api/bills/'+id+'/duplicate', {method:'POST'});
+  if(res.ok){ const copy = await res.json(); location.href = '/'+(page||'restaurant.html')+'?id='+copy.id; }
+}
+async function del(id, name){
+  if(!confirm('Delete "'+name+'"? This cannot be undone.')) return;
+  await fetch('/api/bills/'+id, {method:'DELETE'});
+  load();
+}
+load();
+</script>
+</body>
+</html>

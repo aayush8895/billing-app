@@ -1,0 +1,5 @@
+{
+  "geminiApiKey": "PASTE_YOUR_GOOGLE_AI_STUDIO_KEY_HERE",
+  "model": "gemini-3.5-flash",
+  "telemetryUrl": "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE_OR_LEAVE_BLANK"
+}
