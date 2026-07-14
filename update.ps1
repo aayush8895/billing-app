@@ -1,17 +1,23 @@
 # Billing App (Beta) — updater/launcher for Windows.
-# Downloads the latest build from the GitHub "main" branch into an "app"
-# subfolder next to this script, keeps your app\data\ and app\config.json
-# untouched across runs, then starts the server.
 #
-# Re-run this script any time to pick up the latest build.
+# Run directly from PowerShell (no file to save/double-click, so Smart App
+# Control never sees a launched "app" to block):
+#
+#   irm https://raw.githubusercontent.com/aayush8895/billing-app/main/update.ps1 | iex
+#
+# Downloads the latest build from the GitHub "main" branch into
+# %USERPROFILE%\billing-app\app, keeps app\data and app\config.json
+# untouched across runs, then starts the server. Re-run the command above
+# any time to pick up the latest build.
 
 $ErrorActionPreference = 'Stop'
 $Repo   = 'aayush8895/billing-app'
 $Branch = 'main'
-$Root   = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Root   = Join-Path $env:USERPROFILE 'billing-app'
 $App    = Join-Path $Root 'app'
 $Zip    = Join-Path $Root '_update.zip'
 $Tmp    = Join-Path $Root '_update_tmp'
+New-Item -ItemType Directory -Force -Path $Root | Out-Null
 
 function Fail($msg) {
   Write-Host $msg -ForegroundColor Red

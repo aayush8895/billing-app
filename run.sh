@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # Billing App (Beta) — updater/launcher for macOS/Linux.
-# Downloads the latest build from the GitHub "main" branch into an "app"
-# subfolder next to this script, keeps app/data and app/config.json
-# untouched across runs, then starts the server.
 #
-# Re-run this script any time to pick up the latest build.
+# Run directly (no file to save/chmod/execute):
+#   curl -fsSL https://raw.githubusercontent.com/aayush8895/billing-app/main/run.sh | bash
+#
+# Downloads the latest build from the GitHub "main" branch into
+# ~/billing-app/app, keeps app/data and app/config.json untouched across
+# runs, then starts the server. Re-run the command above any time to update.
 set -euo pipefail
 
 REPO="aayush8895/billing-app"
 BRANCH="main"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$HOME/billing-app"
 APP="$ROOT/app"
 TMP="$(mktemp -d)"
+mkdir -p "$ROOT"
 
 command -v node >/dev/null 2>&1 || {
   echo "Node.js not found. Install it from https://nodejs.org/ (LTS) and re-run this script." >&2
