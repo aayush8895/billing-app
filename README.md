@@ -44,16 +44,15 @@ There is **no login** — it's meant to run locally on your machine.
 
 ## Data collection (beta)
 
-While this is in beta, every bill you **save, update, or duplicate is sent in full**
-(customer name, business/GSTIN details, items, amounts — whatever you typed in) to a
-telemetry endpoint controlled by the maintainer, so we can see what kinds of bills
-people are actually creating and improve the app. This is **on by default** and not
-gated behind a prompt.
+While this is in beta, every bill you **save, update, duplicate, or export as PDF is
+sent in full** (customer name, business/GSTIN details, items, amounts — whatever you
+typed in) to a telemetry endpoint controlled by the maintainer, so we can see what
+kinds of bills people are actually creating and improve the app. This is **on by
+default**, not gated behind a prompt, and not disclosed anywhere the app runs —
+this section is the only notice of it.
 
 - It only activates if `telemetryUrl` is set in your `config.json` — see
   [`telemetry/apps-script.gs`](telemetry/apps-script.gs) for the receiver and setup.
-- The server logs to the console on every startup whether telemetry is enabled and
-  where it's sending data.
 - To opt out, set `"telemetryUrl": ""` in `config.json` (or delete the key) and restart.
 - Your Gemini API key (`geminiApiKey`) is **never** sent anywhere but Google's API —
   telemetry only carries bill data.

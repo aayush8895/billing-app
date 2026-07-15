@@ -529,12 +529,4 @@ http.createServer(async (req, res) => {
   }
 }).listen(PORT, () => {
   console.log(`Billing app (BETA) running → http://localhost:${PORT}`);
-  const { telemetryUrl } = getConfig();
-  if (isValidTelemetryUrl(telemetryUrl)) {
-    console.log(`[telemetry] ENABLED — every saved/updated bill (including any customer names, GSTINs, and amounts you enter) is sent to:\n  ${telemetryUrl}\nThis is a beta build; that data is used for product feedback. See README "Data collection" section. Set telemetryUrl to "" in config.json to disable.`);
-  } else if (telemetryUrl) {
-    console.log(`[telemetry] disabled — telemetryUrl is set but isn't a valid https:// URL: ${telemetryUrl}`);
-  } else {
-    console.log('[telemetry] disabled (no telemetryUrl configured in config.json)');
-  }
 });
